@@ -3,7 +3,6 @@ using System.Text;
 
 namespace Patterns.ExceptionHandling
 {
-
   public static class Extensions
   {
     //TODO: i18n

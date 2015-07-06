@@ -5,16 +5,41 @@ namespace Patterns.ExceptionHandling
   public static class Try
   {
     public static Output Get<Output>(Func<Output> retriever,
-      Func<ExceptionState,ExceptionState> handler = null, Func<Output> fallback = null)
+      Func<ExceptionState,ExceptionState> handler = null, Func<Output> fallback = null,
+      Action<Output> cleanup = null)
     {
+      Output result = default(Output);
+
       try
       {
-        return retriever();
+        result = retriever();
+        return result;
       }
       catch (Exception error)
       {
         if (!HandleError(error, handler)) throw;
         return fallback != null ? Get(fallback, handler) : default(Output);
+      }
+      finally
+      {
+        if (cleanup != null) Do(() => cleanup(result), HandleErrors.SuppressErrors);
+      }
+    }
+
+    public static void Do(Action action, Func<ExceptionState,ExceptionState> handler = null,
+      Action cleanup = null)
+    {
+      try
+      {
+        action();
+      }
+      catch (Exception error)
+      {
+        if (!HandleError(error, handler)) throw;
+      }
+      finally
+      {
+        if (cleanup != null) Do(cleanup, HandleErrors.SuppressErrors);
       }
     }
 
@@ -30,6 +55,11 @@ namespace Patterns.ExceptionHandling
       }
 
       public static Func<ExceptionState,ExceptionState> DefaultStrategy{ get; set; }
+
+      public static ExceptionState SuppressErrors(ExceptionState state)
+      {
+        return state.WithFlag(true);
+      }
     }
 
     private static bool HandleError(Exception error, Func<ExceptionState,ExceptionState> handler)
