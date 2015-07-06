@@ -50,7 +50,47 @@ Try.Do(ForExample.SometimesVoidMethodsThrow); // ApplicationException > STDOUT
 string result = Try.Get(ForExample.AndSometimesValuedMethodsThrow); // result = null
 ```
 
-#TODO: add additional use cases here
+Errors are handled using the default strategy when an ad-hoc handler is not provided. This strategy can be set using a static property, `Try.HandleErrors.DefaultStrategy`. On `AppDomain` load, the default strategy is to print the full `Exception` details to `STDOUT` and treat the error as "handled", preventing it from propagating further.
+
+```csharp
+// default strategy: suppress ArgumentExceptions and bubble the rest
+Try.HandleErrors.DefaultStrategy = state => state.Handled(state.Error is ArgumentException);
+```
+
+For convenience, a strategy that suppresses all errors is available: `Try.HandleErrors.SuppressErrors`. It is intended for use in rare situations when then error itself does not matter so long as it is not allowed to propagate.
+
+The `Try` class's real power is in its ability to accept ad-hoc strategies. An error handling strategy is one that takes an `ExceptionState` instance, and returns an `ExceptionState` instance. `ExceptionState` provides a fluent interface, allowing an inline expression to serve as the strategy in most instances.
+
+```csharp
+// wraps and propagates
+Try.Do(ForExample.SometimesVoidMethodsThrow,
+  state => state.WithError(new ApplicationException("Semantic Wrapper X", state.Error)));
+
+// wraps, logs, and traps
+string value = Try.Get(ForExample.AndSometimesValuedMethodsThrow,
+  state => state.WithError(new ApplicationException("Semantic Wrapper Y", state.Error))
+    .WithAction(finalState => _log.Error(finalState.Error))
+    .Handled(true));
+```
+
+It's usually a good idea to build a strategy and reuse it wherever relevant.
+
+```csharp
+public class Example
+{
+  private static readonly ILog _log = LogManager.GetLogger(typeof(Example));
+  private static readonly ErrorStrategy _strategy = state => state.Handled(true)
+    .WithAction(_ => _log.Error(state.Error));
+
+  private const string DEFAULT = "bar";
+
+  public void Foo()
+  {
+    Try.Do(ForExample.SometimesVoidMethodsThrow, _strategy);
+    string value = Try.Get(ForExample.AndSometimesValuedMethodsThrow, _strategy) ?? DEFAULT;
+  }
+}
+```
 
 ## Testing / Development
 

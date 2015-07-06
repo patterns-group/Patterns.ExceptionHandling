@@ -4,9 +4,8 @@ namespace Patterns.ExceptionHandling
 {
   public static class Try
   {
-    public static Output Get<Output>(Func<Output> retriever,
-      Func<ExceptionState,ExceptionState> handler = null, Func<Output> fallback = null,
-      Action<Output> cleanup = null)
+    public static Output Get<Output>(Func<Output> retriever, ErrorStrategy handler = null,
+      Func<Output> fallback = null, Action<Output> cleanup = null)
     {
       Output result = default(Output);
 
@@ -26,8 +25,7 @@ namespace Patterns.ExceptionHandling
       }
     }
 
-    public static void Do(Action action, Func<ExceptionState,ExceptionState> handler = null,
-      Action cleanup = null)
+    public static void Do(Action action, ErrorStrategy handler = null, Action cleanup = null)
     {
       try
       {
@@ -50,23 +48,23 @@ namespace Patterns.ExceptionHandling
         DefaultStrategy = state =>
         {
           Console.WriteLine(state.Error.ToFullString());
-          return state.WithFlag(true);
+          return state.Handled(true);
         };
       }
 
-      public static Func<ExceptionState,ExceptionState> DefaultStrategy{ get; set; }
+      public static ErrorStrategy DefaultStrategy{ get; set; }
 
       public static ExceptionState SuppressErrors(ExceptionState state)
       {
-        return state.WithFlag(true);
+        return state.Handled(true);
       }
     }
 
-    private static bool HandleError(Exception error, Func<ExceptionState,ExceptionState> handler)
+    private static bool HandleError(Exception error, ErrorStrategy handler)
     {
       var strategy = handler ?? HandleErrors.DefaultStrategy;
       if (strategy == null) return false;
-      var state = strategy(new ExceptionState().WithError(error));
+      var state = strategy(new ExceptionState().WithError(error)).Evaluate();
       if (!state.IsHandled && !ReferenceEquals(error, state.Error) && state.Error != null) throw state.Error;
       return state.IsHandled;
     }
